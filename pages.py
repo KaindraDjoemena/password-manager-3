@@ -3,21 +3,22 @@ import os
 import helper
 import base64
 import hashlib
-import sqlite3
 import getpass
-import validators
+import pyperclip
 from prettytable import PrettyTable
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Connect with the databse
-conn = sqlite3.connect("user.db")
-cursor = conn.cursor()
 
+def register(cursor, conn):
+    """
+    Takes user input to register the user
+    When their inputs are all valid, the function make the 'user' and 'savings' table
+    The function will also encrypt the data before insertint the user data into the 'user' table
+    
+    """
 
-# Register page
-def register():
     print("[type '//c' to cancel]")
 
     # Get user input
@@ -100,8 +101,13 @@ def register():
             quit()
 
 
-# Login page
-def login():
+def login(cursor):
+    """
+    Takes the hash of the user's master password input and compares it to the existing master password hash
+    After the user logs in, the function generates a key for the encryption from the master password
+    
+    """
+
     # Get users hashed password
     data = cursor.execute("SELECT * FROM user").fetchall()[0]
     email = data[2]
@@ -127,8 +133,12 @@ def login():
             return key
 
 
-# Display data in a formatted way
-def displayCards(key):
+def displayCards(cursor, key):
+    """
+    Displays all the rows in a table format
+    
+    """
+
     fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings").fetchall()
 
     # Return warning if we get nothing
@@ -140,8 +150,12 @@ def displayCards(key):
     helper.printTable(fetched_data, key)
 
 
-# Make new card
-def newCard(key):
+def newCard(cursor, conn, key):
+    """
+    Makes/saves a new card by inputting a url, website name, username, email, and password then encrypting it
+    When all the inputted data are valid, the function encrypts all the data before inserting it into the 'savings' table
+
+    """
 
     # Get user input
     # Get valid url
@@ -152,7 +166,7 @@ def newCard(key):
         if helper.wantsToExitInpuField(url_input):
             return
 
-        elif validators.url(url_input):
+        elif helper.validInputs("url", url_input):
             break
 
         helper.warning("invalid url")
@@ -165,7 +179,7 @@ def newCard(key):
         if helper.wantsToExitInpuField(website_input):
             return
 
-        elif " " not in website_input and website_input:
+        elif helper.validInputs("website", website_input):
             break
 
         helper.warning("invalid website")
@@ -178,7 +192,7 @@ def newCard(key):
         if helper.wantsToExitInpuField(username_input):
             return
         
-        elif username_input:
+        elif helper.validInputs("username", username_input):
             break
 
     # Get valid email
@@ -191,10 +205,9 @@ def newCard(key):
 
         elif email_input == "email":
             email_input = cursor.execute("SELECT email FROM user").fetchall()[0][0]
-            conn.commit()
             break
 
-        elif helper.emailIsValid(email_input):
+        elif helper.validInputs("email", email_input):
             break
 
         helper.warning("invalid email")
@@ -258,8 +271,11 @@ def newCard(key):
         helper.warning("invalid input")
 
 
-# Search data
-def search(key):
+def search(cursor, key):
+    """
+    Prints a row of data by specifying its website column in a table format
+    
+    """
 
     while True:
         user_input = input("search by website: ").strip()
@@ -275,7 +291,7 @@ def search(key):
         helper.warning("invalid input")
 
     # Query the database
-    fetched_data = helper.searchTable(key, user_input)
+    fetched_data = helper.searchTable(cursor, key, user_input)
 
     if fetched_data == None or len(fetched_data) < 1:
         helper.warning("no matching data")
@@ -285,8 +301,11 @@ def search(key):
     helper.printTable(fetched_data, key)
 
 
-# Delete data
-def delete(key):
+def delete(cursor, conn, key):
+    """
+    Deletes a row of data by specifying its website column
+    
+    """
 
     while True:
         user_input = input("delete by website: ").strip()
@@ -302,7 +321,7 @@ def delete(key):
         helper.warning("invalid input")
 
     # Query the database
-    fetched_data = helper.searchTable(key, user_input)
+    fetched_data = helper.searchTable(cursor, key, user_input)
 
     if fetched_data == None or len(fetched_data) < 1:
         helper.warning("no matching data")
@@ -321,7 +340,7 @@ def delete(key):
         if user_confirmation in ["y", "yes"]:
 
             # Delete data
-            helper.deleteData(fetched_data)
+            helper.deleteData(cursor, conn, fetched_data)
             helper.success("successfully deleted from table")
             return
 
@@ -333,8 +352,11 @@ def delete(key):
         helper.warning("invalid input")
 
 
-# Update data
-def update(key):
+def update(cursor, conn, key):
+    """
+    Updates a specified id's column
+    
+    """
 
     while True:
         user_input = input("update by id: ").strip()
@@ -380,7 +402,7 @@ def update(key):
         if helper.wantsToExitInpuField(user_input):
             return
 
-        elif helper.validUpdateItem(update_column, update_item):
+        elif helper.validInputs(update_column, update_item):
             break
 
         helper.warning("invalid input")
@@ -394,7 +416,7 @@ def update(key):
         if user_confirmation in ["y", "yes"]:
 
             # Update data
-            helper.updateData(update_column, update_item, fetched_data[0][0], key)
+            helper.updateData(cursor, conn, update_column, update_item, fetched_data[0][0], key)
             helper.success("successfully updated table")
             return
 
@@ -406,9 +428,71 @@ def update(key):
         helper.warning("invalid input")
 
 
-# Prints all the commands
+def copy(cursor, key):
+    """
+    Copy an item of an id's specified column
+    
+    """
+
+    while True:
+        user_input = input("copy by id: ").strip()
+
+        # See if the user wants to cancels
+        if helper.wantsToExitInpuField(user_input):
+            return
+
+        # Check if the user input is valid for parsing
+        elif user_input and user_input.isdigit():
+            break
+            
+        helper.warning("invalid input")
+
+    # Query the database with its id
+    fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings WHERE id=?", (user_input,)).fetchall()
+
+    if fetched_data == None or len(fetched_data) < 1:
+        helper.warning("no matching data")
+        return
+
+    # Prints search results
+    helper.printTable(fetched_data, key)
+
+    # Get user input for which column to copy
+    while True:
+        copy_column = input("column: ").strip()
+
+        # See if the user wants to cancels
+        if helper.wantsToExitInpuField(copy_column):
+            return
+
+        elif copy_column.lower() in ["url", "website", "username", "email", "password"]:
+            column_map = {
+                "url": 1,
+                "website": 2,
+                "username": 3,
+                "email": 4,
+                "password": 5
+            }
+            
+            fernet = Fernet(key)
+
+            index = column_map[copy_column.lower()]
+            token = fernet.decrypt(fetched_data[0][index].encode()).decode()
+            pyperclip.copy(token)   # Copy the decrypted data
+            helper.warning(f"{copy_column.lower()} copied to clipboard")
+            return
+
+        helper.warning("invalid column")
+
+
 def help():
+    """
+    A list of all of the valid commands and what they do
+
+    """
+
     table = PrettyTable()
+    table.add_row(["[GENERAL COMMANDS]"])
     table.add_row(["'help'              help page"])
     table.add_row(["'/display'          displays saved data"])
     table.add_row(["'/new '             saves new data"])
@@ -417,7 +501,14 @@ def help():
     table.add_row(["'/update'           updates data"])
     table.add_row(["'clear'             clears the screen"])
     table.add_row(["'exit'/'quit'       kills the program"])
-    table.add_row(["'//c'                 exists out of input fields"])
+    table.add_row([""])
+    table.add_row(["[INPUT COMMANDS]"])
+    table.add_row(["'//c'               exists out of input fields"])
+    table.add_row(["'random'            generates a random password of 20 chars"])
+    table.add_row(["'random (x)'        specifies the length of the password"])
+    table.add_row(["'email'             inputs user email from the 'register' page"])
+
+    # Table formatting
     table.align = "l"
     table.header = False
     print(table)

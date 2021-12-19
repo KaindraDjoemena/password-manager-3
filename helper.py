@@ -1,7 +1,6 @@
 # Helper functions for the main file "main.py"
 import re
 import random
-import sqlite3
 import validators
 from random import choices
 from prettytable import PrettyTable
@@ -10,23 +9,22 @@ from prettytable import HEADER
 from cryptography.fernet import Fernet
 
 
-# Connect with the databse
-conn = sqlite3.connect("user.db")
-cursor = conn.cursor()
-
-
 # Check if the input is valid
 def isValid(user_input):
     if " " not in user_input and user_input:
         return True
     return False
 
+
 # Warning formatting
 def warning(message):
     print(f"  <{message}>")
 
+
+# Success formatting
 def success(message):
     print(f"[{message}]")
+
 
 # Check if email is valid
 def emailIsValid(email_input):
@@ -35,6 +33,7 @@ def emailIsValid(email_input):
         return True
     return False
 
+
 # See if the user wants to get out of filling an input field
 def wantsToExitInpuField(user_input):
     if user_input == "//c":
@@ -42,11 +41,13 @@ def wantsToExitInpuField(user_input):
         return True
     return False
 
+
 # Check if the password is valid
 def passwordIsValid(password_input):
     if len(password_input) > 8 and " " not in password_input:
         return True
     return False
+
 
 # Generate a random password
 def generatePassword(len=20):
@@ -58,10 +59,12 @@ def generatePassword(len=20):
     return password
 
 
-# Prints the data in a formatted way
 def printTable(fetched_data, key):
+    """
+    Prints the data/rows in a table format
+    
+    """
 
-    # Print the data
     table = PrettyTable()
     table.field_names = ["ID", "URL", "Website", "Username", "Email", "Password"]
     fernet = Fernet(key)
@@ -83,14 +86,18 @@ def printTable(fetched_data, key):
     print()
 
 
-# Search for data
-def searchTable(key, item):
+def searchTable(cursor, key, item):
+    """
+    Searches for a row of data by specifying its website name
+    It fetches all encrypted data first, then compares each row's website decrypted column to see if it matches
+    
+    """
+
 
     fernet = Fernet(key)
 
     # Query the database
     fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings").fetchall()
-    conn.commit()
 
     # Check if we get any data in return
     if len(fetched_data) < 1:
@@ -106,10 +113,12 @@ def searchTable(key, item):
     return search_result
 
 
-# Updates user data
-def updateData(update_column, update_item, id, key):
+def updateData(cursor, conn, update_column, update_item, id, key):
+    """
+    For some reason, sqlite3 can't have placeholders for their column name, so I have to hard code it
+    
+    """
 
-    # Encrypts data before updating it
     fernet = Fernet(key)
 
     # Update the id's column
@@ -130,8 +139,8 @@ def updateData(update_column, update_item, id, key):
     conn.commit()
 
 
-# Search for data
-def deleteData(fetched_data):
+# Delete data by its id
+def deleteData(cursor, conn, fetched_data):
 
     for data in fetched_data:
         id = data[0]
@@ -140,24 +149,29 @@ def deleteData(fetched_data):
     conn.commit()
 
 
-def validUpdateItem(update_column, update_item):
-    if update_column == "url":
-        if validators.url(update_item):
+def validInputs(column, item):
+    """
+    See if the user input is valid
+    
+    """
+
+    if column == "url":
+        if validators.url(item):
             return True
 
-    elif update_column == "website":
-        if " " not in update_item and update_item:
+    elif column == "website":
+        if " " not in item and item:
             return True
 
-    elif update_column == "username":
+    elif column == "username":
         return True
 
-    elif update_column == "email":
-        if emailIsValid(update_item):
+    elif column == "email":
+        if emailIsValid(item):
             return True
 
-    elif update_column == "password":
-        if passwordIsValid(update_item):
+    elif column == "password":
+        if passwordIsValid(item):
             return True
     
     return False

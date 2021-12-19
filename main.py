@@ -10,10 +10,11 @@ from pages import search
 from pages import delete
 from pages import update 
 from pages import help
+from pages import copy
 
 
 # Connect with the databse
-conn = sqlite3.connect("user.db")
+conn = sqlite3.connect(".user.db")
 cursor = conn.cursor()
 
 
@@ -31,23 +32,27 @@ def main(key):
             
             # Displays user data
             if user_input == "/display":
-                displayCards(key)
+                displayCards(cursor, key)
 
             # Makes new cards
             elif user_input == "/new":
-                newCard(key)
+                newCard(cursor, conn, key)
             
             # Search data
             elif user_input == "/search":
-                search(key)
+                search(cursor, key)
             
             # Delete data/card
             elif user_input == "/delete":
-                delete(key)
+                delete(cursor, conn, key)
             
             # Update data/card
             elif user_input == "/update":
-                update(key)
+                update(cursor, conn, key)
+            
+            # User can copy data
+            elif user_input == "/copy":
+                copy(cursor, key)
             
             else:
                 helper.warning("no such command")
@@ -58,7 +63,7 @@ def main(key):
 
         # Quitting the program
         elif user_input in ["quit", "exit"]:
-            conn.commit()
+            # conn.commit()
             conn.close()
             exit()
         
@@ -76,7 +81,7 @@ if __name__ == "__main__":
         cursor.execute("SELECT * FROM savings")
         conn.commit()
     except:
-        register()
+        register(cursor, conn)
 
-    key = login()
+    key = login(cursor)
     main(key)
