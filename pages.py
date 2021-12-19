@@ -45,20 +45,37 @@ def register(cursor, conn):
         helper.warning("invalid email")
 
     while True:
-        password_input = input("master password\t: ").strip()
+        master_password_input = input("master password\t: ").strip()
 
         # See if the user wants to cancels
-        if helper.wantsToExitInpuField(password_input):
+        if helper.wantsToExitInpuField(master_password_input):
             return
 
-        if helper.passwordIsValid(password_input):
+        if helper.passwordIsValid(master_password_input):
             break
         
         # Check for errors in the password input
-        if len(password_input) < 9:
+        if len(master_password_input) < 9:
             helper.warning("password must be at least 9 chars long")
         else:
             helper.warning("invalid password")
+
+    # Ask the user if they would like to continue
+    while True:
+        print("* BE SURE OF YOUR MASTER PASSWORD *")
+        print("* YOU WILL NOT BE ABLE TO CHANGE YOUR MASTER PASSWORD *")
+        user_confirmation = input("proceed?(y/n): ").strip().lower()
+
+        # If the user wishes to continue
+        if user_confirmation in ["y", "yes"]:
+            break
+
+        # If the user wants to cancel
+        elif user_confirmation in ["n", "no"]:
+            helper.warning("cancelled")
+            return
+        
+        helper.warning("invalid input")
 
     # Make tables
     # User table
@@ -83,7 +100,7 @@ def register(cursor, conn):
         )""")
 
     # Hash password
-    password_input_hash = hashlib.sha256(password_input.encode()).hexdigest()
+    password_input_hash = hashlib.sha256(master_password_input.encode()).hexdigest()
     salt = os.urandom(16)
 
     # Insert data into the table
@@ -110,27 +127,15 @@ def login(cursor):
 
     # Get users hashed password
     data = cursor.execute("SELECT * FROM user").fetchall()[0]
-    email = data[2]
     master_password_hash = data[3]
-    salt = data[4]
 
     while True:
         master_password_input = getpass.getpass("master password: ").strip()
         if hashlib.sha256(master_password_input.encode()).hexdigest() == master_password_hash:
             helper.success("welcome :)")
-            helper.success("type 'help' for help")
+            helper.success("\ntype 'help' for help")
 
-            # Password is the unhashed master password + email
-            password = (master_password_input + email).encode("utf8")
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=390000
-            )
-
-            key = base64.urlsafe_b64encode(kdf.derive(password)) # Key is based on user unhashed master password input
-            return key
+            return helper.generateKey(cursor, master_password_input)
 
 
 def displayCards(cursor, key):
@@ -327,7 +332,7 @@ def delete(cursor, conn, key):
         helper.warning("no matching data")
         return
 
-    print("\n  Data you wish to delete:\n")
+    print("\n  Data you wish to delete:")
 
     # Prints search results
     helper.printTable(fetched_data, key)

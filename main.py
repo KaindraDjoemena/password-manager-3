@@ -14,7 +14,7 @@ from pages import copy
 
 
 # Connect with the databse
-conn = sqlite3.connect(".user.db")
+conn = sqlite3.connect("user.db")
 cursor = conn.cursor()
 
 
@@ -53,13 +53,14 @@ def main(key):
             # User can copy data
             elif user_input == "/copy":
                 copy(cursor, key)
-            
+
             else:
                 helper.warning("no such command")
 
         # Clears terminal
         elif user_input == "clear":
             os.system("cls")
+            helper.success("type 'help' for help")
 
         # Quitting the program
         elif user_input in ["quit", "exit"]:
