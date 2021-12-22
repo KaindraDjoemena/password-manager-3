@@ -494,7 +494,7 @@ def copy(cursor, key):
 
 def settings(cursor, conn, key):
     """
-    Something
+    User config page
     
     """
 
@@ -630,7 +630,7 @@ def help():
     table.add_row(["[INPUT COMMANDS]"])
     table.add_row(["'//c'               exists out of input fields"])
     table.add_row(["'random'            generates a random password of 20 chars"])
-    table.add_row(["'random (x)'        specifies the length of the password"])
+    table.add_row(["'random LENGTH'     specifies the length of the password"])
     table.add_row(["'email'             inputs user email from the 'register' page"])
 
     # Table formatting
