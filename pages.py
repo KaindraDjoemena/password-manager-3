@@ -1,14 +1,11 @@
 # Dependencies
 import os
 import helper
-import base64
 import hashlib
 import getpass
 import pyperclip
 from prettytable import PrettyTable
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 def register(cursor, conn):
@@ -133,18 +130,23 @@ def login(cursor):
         master_password_input = getpass.getpass("master password: ").strip()
         if hashlib.sha256(master_password_input.encode()).hexdigest() == master_password_hash:
             helper.success("welcome :)")
-            helper.success("\ntype 'help' for help")
+            print()
+            helper.success("type 'help' for help")
 
             return helper.generateKey(cursor, master_password_input)
 
 
-def displayCards(cursor, key):
+def displayCards(cursor, key, ascending=True):
     """
     Displays all the rows in a table format
     
     """
 
-    fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings").fetchall()
+    if ascending:
+        fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings").fetchall()
+
+    elif not ascending:
+        fetched_data = cursor.execute("SELECT id, url, website, username, email, password FROM savings ORDER BY time DESC").fetchall()
 
     # Return warning if we get nothing
     if len(fetched_data) < 1:
@@ -373,7 +375,7 @@ def update(cursor, conn, key):
         # Check if the user input is valid for parsing
         elif user_input and user_input.isdigit():
             break
-            
+
         helper.warning("invalid input")
 
     # Query the database
@@ -490,6 +492,122 @@ def copy(cursor, key):
         helper.warning("invalid column")
 
 
+def settings(cursor, conn, key):
+    """
+    Something
+    
+    """
+
+    # Table option
+    table = PrettyTable()
+    table.add_row(["1. view data        2. Change email"])
+    table.add_row(["3. Change username  4. Change password"])
+    table.header = False
+    table.align = "l"
+    print(table)
+
+    while True:
+        option_input = input("option: ").strip()
+
+        # See if the user wants to cancels
+        if helper.wantsToExitInpuField(option_input):
+            return
+
+        elif option_input in ["1", "2", "3", "4"]:
+            break
+
+        helper.warning("invalid input")
+
+    # Get users hashed password
+    fetched_data = cursor.execute("SELECT * FROM user").fetchall()
+    master_password_hash = fetched_data[0][3]
+    while True:
+        master_password_input = getpass.getpass("master password: ").strip()
+
+        if helper.wantsToExitInpuField(option_input):
+            return
+
+        if hashlib.sha256(master_password_input.encode()).hexdigest() == master_password_hash:
+            break
+
+    if option_input == "1":
+        helper.printTable(fetched_data, key, "user")
+
+    # Email
+    elif option_input == "2":
+        while True:
+            new_email_input = input("change email to: ").strip()
+            
+            if helper.wantsToExitInpuField(new_email_input):
+                return
+            
+            elif helper.validInputs("email", new_email_input):
+                break
+
+    # Username
+    elif option_input == "3":
+        while True:
+            new_username_input = input("change username to: ").strip()
+
+            if helper.wantsToExitInpuField(new_username_input):
+                return
+
+            elif helper.validInputs("username", new_username_input):
+                break
+
+    # Password
+    elif option_input == "4":
+        while True:
+            new_password_input = input("change password to: ").strip()
+
+            if helper.wantsToExitInpuField(new_password_input):
+                return
+
+            elif helper.validInputs("password", new_password_input):
+                break
+
+    if option_input in ["2", "3", "4"]:
+        # Ask the user if they would like to continue
+        while True:
+            user_confirmation = input("proceed?(y/n): ").strip().lower()
+
+            # If the user wishes to continue
+            if user_confirmation in ["y", "yes"]:
+
+                # Update data
+                if option_input == "2":
+
+                    # Get users hashed password
+                    data = cursor.execute("SELECT * FROM user").fetchall()[0]
+                    master_password_hash = data[3]
+
+                    while True:
+                        master_password_input = getpass.getpass("master password: ").strip()
+
+                        if helper.wantsToExitInpuField(master_password_input):
+                            return
+
+                        elif hashlib.sha256(master_password_input.encode()).hexdigest() == master_password_hash:
+                            helper.changeEmail(cursor, conn, master_password_input, new_email_input, key)
+                            break
+
+                elif option_input == "3":
+                    helper.updateData(cursor, conn, "username", new_username_input, 1, key, "user")
+
+                elif option_input == "4":
+                    helper.changePassword(cursor, conn, new_password_input, key)
+
+                helper.success("requires login")
+                exit()
+
+            # If the user wants to cancel
+            elif user_confirmation in ["n", "no"]:
+                helper.warning("cancelled")
+                return
+
+            helper.warning("invalid input")
+
+
 def help():
     """
     A list of all of the valid commands and what they do
@@ -500,10 +618,12 @@ def help():
     table.add_row(["[GENERAL COMMANDS]"])
     table.add_row(["'help'              help page"])
     table.add_row(["'/display'          displays saved data"])
+    table.add_row(["'//display'         displays saved data (descending)"])
     table.add_row(["'/new '             saves new data"])
     table.add_row(["'/search'           searches data"])
     table.add_row(["'/delete'           deletes data"])
     table.add_row(["'/update'           updates data"])
+    table.add_row(["'/settings'         configure user data"])
     table.add_row(["'clear'             clears the screen"])
     table.add_row(["'exit'/'quit'       kills the program"])
     table.add_row([""])

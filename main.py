@@ -11,6 +11,7 @@ from pages import delete
 from pages import update 
 from pages import help
 from pages import copy
+from pages import settings
 
 
 # Connect with the databse
@@ -32,7 +33,10 @@ def main(key):
             
             # Displays user data
             if user_input == "/display":
-                displayCards(cursor, key)
+                displayCards(cursor, key, True)
+            
+            elif user_input == "//display":
+                displayCards(cursor, key, False)
 
             # Makes new cards
             elif user_input == "/new":
@@ -53,6 +57,9 @@ def main(key):
             # User can copy data
             elif user_input == "/copy":
                 copy(cursor, key)
+
+            elif user_input == "/settings":
+                settings(cursor, conn, key)
 
             else:
                 helper.warning("no such command")

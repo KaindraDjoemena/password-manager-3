@@ -2,6 +2,7 @@
 import re
 import base64
 import random
+import hashlib
 import validators
 from random import choices
 from prettytable import PrettyTable
@@ -131,7 +132,6 @@ def searchTable(cursor, key, item):
     
     """
 
-
     fernet = Fernet(key)
 
     # Query the database
@@ -187,6 +187,104 @@ def updateData(cursor, conn, column, update_item, id, key, table="savings"):
             cursor.execute("UPDATE user SET master_password=? WHERE id=?", (update_item, id))
     
     conn.commit()
+
+
+def changePassword(cursor, conn, new_password, key):
+    """
+    Get encrypt data, decrypt with the old key, encrypt all data with the new key
+    
+    """
+
+    # Fetch encrypted data
+    fetched_data = cursor.execute("SELECT * FROM savings").fetchall()
+    if len(fetched_data) < 1:
+        new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        updateData(cursor, conn, "master_password", new_password_hash, 1, key, "user")
+        return
+
+    fernet = Fernet(key)
+    raw_data = []
+    for data in fetched_data:
+        decrypted_url = fernet.decrypt(data[1].encode()).decode()
+        decrypted_website = fernet.decrypt(data[2].encode()).decode()
+        decrypted_username = fernet.decrypt(data[3].encode()).decode()
+        decrypted_email = fernet.decrypt(data[4].encode()).decode()
+        decrypted_password = fernet.decrypt(data[5].encode()).decode()
+
+        raw_data.append((
+            data[0],
+            decrypted_url,
+            decrypted_website,
+            decrypted_username,
+            decrypted_email,
+            decrypted_password
+        ))
+
+    # Update master password
+    new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+    updateData(cursor, conn, "master_password", new_password_hash, 1, key, "user")
+
+    # Encrypt with new key
+    id = 1
+    new_key = generateKey(cursor, new_password)
+    fernet = Fernet(new_key)
+    for data in raw_data:
+
+        updateData(cursor, conn, "url", data[1], id, new_key)
+        updateData(cursor, conn, "website", data[2], id, new_key)
+        updateData(cursor, conn, "username", data[3], id, new_key)
+        updateData(cursor, conn, "email", data[4], id, new_key)
+        updateData(cursor, conn, "password", data[5], id, new_key)
+
+        id += 1
+
+
+def changeEmail(cursor, conn, master_password_input, new_email, key):
+    """
+    Get encrypt data, decrypt with the old key, encrypt all data with the new key
+    
+    """
+
+    # Fetch encrypted data
+    fetched_data = cursor.execute("SELECT * FROM savings").fetchall()
+    if len(fetched_data) < 1:
+        updateData(cursor, conn, "email", new_email, 1, key, "user")
+        return
+
+    fernet = Fernet(key)
+    raw_data = []
+    for data in fetched_data:
+        decrypted_url = fernet.decrypt(data[1].encode()).decode()
+        decrypted_website = fernet.decrypt(data[2].encode()).decode()
+        decrypted_username = fernet.decrypt(data[3].encode()).decode()
+        decrypted_email = fernet.decrypt(data[4].encode()).decode()
+        decrypted_password = fernet.decrypt(data[5].encode()).decode()
+
+        raw_data.append((
+            data[0],
+            decrypted_url,
+            decrypted_website,
+            decrypted_username,
+            decrypted_email,
+            decrypted_password
+        ))
+
+    # Update email
+    updateData(cursor, conn, "email", new_email, 1, key, "user")
+
+    # Encrypt with new key
+    id = 1
+    new_key = generateKey(cursor, master_password_input)
+    fernet = Fernet(new_key)
+    for data in raw_data:
+
+        updateData(cursor, conn, "url", data[1], id, new_key)
+        updateData(cursor, conn, "website", data[2], id, new_key)
+        updateData(cursor, conn, "username", data[3], id, new_key)
+        updateData(cursor, conn, "email", data[4], id, new_key)
+        updateData(cursor, conn, "password", data[5], id, new_key)
+
+        id += 1
 
 
 # Delete data by its id
