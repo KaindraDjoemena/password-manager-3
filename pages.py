@@ -60,7 +60,7 @@ def register(cursor, conn):
     # Ask the user if they would like to continue
     while True:
         print("* BE SURE OF YOUR MASTER PASSWORD *")
-        print("* YOU WILL NOT BE ABLE TO CHANGE YOUR MASTER PASSWORD *")
+        print("* KEEP A COPY OF user.db SOMEWHERE SAFE *")
         user_confirmation = input("proceed?(y/n): ").strip().lower()
 
         # If the user wishes to continue
